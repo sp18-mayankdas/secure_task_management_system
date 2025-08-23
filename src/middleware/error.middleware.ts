@@ -2,6 +2,24 @@ import { Request, Response, NextFunction } from 'express';
 import logger from '../config/logger';
 
 export class ErrorMiddleware {
+
+  static handleError(
+    error: Error,
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): void {
+    logger.error('Unhandled error occurred', {
+      error: error?.message || 'Unknown error',
+      stack: error?.stack || 'No stack trace',
+      url: req.url,
+      method: req.method,
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      userId: req.user?.userId || 'anonymous'
+    });
+
+  }
   
   //404 error
   static handleNotFound(req: Request, res: Response): void {

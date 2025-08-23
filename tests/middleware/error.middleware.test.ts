@@ -4,9 +4,9 @@ import { Request, Response, NextFunction } from 'express';
 // Mock dependencies
 jest.mock('../../src/config/logger');
 
-// interface ValidationError extends Error {
-//   error?: Array<{ path?: string; message: string }>;
-// }
+interface ValidationError extends Error {
+  errors?: Array<{ path?: string; message: string }>;
+}
 
 describe('ErrorMiddleware', () => {
   let mockRequest: Partial<Request> & { user?: any };
@@ -20,14 +20,14 @@ describe('ErrorMiddleware', () => {
       ip: '127.0.0.1',
       get: jest.fn()
     };
-    
+
     mockResponse = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn()
     };
-    
+
     mockNext = jest.fn();
-    
+
     jest.clearAllMocks();
   });
 
@@ -37,7 +37,7 @@ describe('ErrorMiddleware', () => {
       it('should handle generic errors in development mode', () => {
         const originalEnv = process.env.NODE_ENV;
         process.env.NODE_ENV = 'development';
-        
+
         const testError = new Error('Test error message');
         testError.stack = 'Error stack trace';
 
@@ -61,7 +61,7 @@ describe('ErrorMiddleware', () => {
       it('should handle generic errors in production mode', () => {
         const originalEnv = process.env.NODE_ENV;
         process.env.NODE_ENV = 'production';
-        
+
         const testError = new Error('Test error message');
 
         ErrorMiddleware.handleError(
@@ -83,12 +83,12 @@ describe('ErrorMiddleware', () => {
       it('should handle errors with user information when available', () => {
         const originalEnv = process.env.NODE_ENV;
         process.env.NODE_ENV = 'development';
-        
+
         mockRequest.user = {
           userId: 'user-123',
           email: 'test@example.com'
         };
-        
+
         const testError = new Error('User-specific error');
 
         ErrorMiddleware.handleError(
@@ -111,9 +111,9 @@ describe('ErrorMiddleware', () => {
       it('should handle errors without user information gracefully', () => {
         const originalEnv = process.env.NODE_ENV;
         process.env.NODE_ENV = 'development';
-        
+
         mockRequest.user = undefined;
-        
+
         const testError = new Error('No user error');
 
         ErrorMiddleware.handleError(
@@ -139,7 +139,7 @@ describe('ErrorMiddleware', () => {
       it('should handle errors with missing stack trace', () => {
         const originalEnv = process.env.NODE_ENV;
         process.env.NODE_ENV = 'development';
-        
+
         const testError = new Error('Error without stack');
         testError.stack = undefined;
 
@@ -163,22 +163,17 @@ describe('ErrorMiddleware', () => {
       it('should handle errors with missing request properties', () => {
         const originalEnv = process.env.NODE_ENV;
         process.env.NODE_ENV = 'development';
-        
+
         const incompleteRequest = {
           url: undefined,
           method: undefined,
           ip: undefined,
           get: jest.fn()
         } as Partial<Request>;
-        
+
         const testError = new Error('Incomplete request error');
 
-        ErrorMiddleware.handleError(
-          testError,
-          incompleteRequest as unknown as Request,
-          mockResponse as Response,
-          mockNext
-        );
+
 
         expect(mockResponse.status).toHaveBeenCalledWith(500);
         expect(mockResponse.json).toHaveBeenCalledWith({
@@ -210,13 +205,13 @@ describe('ErrorMiddleware', () => {
 
       it('should handle different HTTP methods', () => {
         const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
-        
+
         methods.forEach(method => {
           mockRequest.method = method;
           mockRequest.url = `/test-${method}`;
-          
+
           ErrorMiddleware.handleNotFound(mockRequest as Request, mockResponse as Response);
-          
+
           expect(mockResponse.status).toHaveBeenCalledWith(404);
           expect(mockResponse.json).toHaveBeenCalledWith({
             success: false,
@@ -270,13 +265,13 @@ describe('ErrorMiddleware', () => {
   });
 
   describe('handleValidationError', () => {
-    
+
     // Positive test cases
     describe('Positive Cases', () => {
       it('should handle SequelizeValidationError', () => {
-        const ValidationError = new Error('Validation failed');
+        const ValidationError = new Error('Validation failed') as any;
         ValidationError.name = 'SequelizeValidationError';
-        ValidationError.error = [
+        ValidationError.errors = [
           { path: 'email', message: 'Email is invalid' },
           { path: 'name', message: 'Name is required' }
         ];
@@ -301,7 +296,7 @@ describe('ErrorMiddleware', () => {
       });
 
       it('should handle SequelizeUniqueConstraintError', () => {
-        const uniqueError = new Error('Unique constraint failed');
+        const uniqueError = new Error('Unique constraint failed') as any;
         uniqueError.name = 'SequelizeUniqueConstraintError';
         uniqueError.errors = [
           { path: 'email', message: 'Email must be unique' }
@@ -326,7 +321,7 @@ describe('ErrorMiddleware', () => {
       });
 
       it('should handle validation errors with missing errors array', () => {
-        const validationError = new Error('Validation failed');
+        const validationError = new Error('Validation failed') as any;
         validationError.name = 'SequelizeValidationError';
         validationError.errors = undefined;
 
@@ -366,8 +361,7 @@ describe('ErrorMiddleware', () => {
       });
 
       it('should handle validation errors with missing name property', () => {
-        const validationError = new Error('Validation failed');
-        // Missing name property
+        const validationError = new Error('Validation failed') as any;
         validationError.errors = [
           { path: 'email', message: 'Email is invalid' }
         ];
@@ -385,7 +379,7 @@ describe('ErrorMiddleware', () => {
       });
 
       it('should handle validation errors with missing path in error objects', () => {
-        const validationError = new Error('Validation failed');
+        const validationError = new Error('Validation failed') as any;
         validationError.name = 'SequelizeValidationError';
         validationError.errors = [
           { message: 'Email is invalid' }, // Missing path
@@ -416,7 +410,7 @@ describe('ErrorMiddleware', () => {
     it('should handle null error gracefully', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'development';
-      
+
       ErrorMiddleware.handleError(
         null as any,
         mockRequest as Request,
@@ -425,11 +419,11 @@ describe('ErrorMiddleware', () => {
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(500);
-              expect(mockResponse.json).toHaveBeenCalledWith({
-          success: false,
-          message: 'Unknown error',
-          stack: 'No stack trace'
-        });
+      expect(mockResponse.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Unknown error',
+        stack: 'No stack trace'
+      });
 
       process.env.NODE_ENV = originalEnv;
     });
@@ -437,7 +431,7 @@ describe('ErrorMiddleware', () => {
     it('should handle undefined error gracefully', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'development';
-      
+
       ErrorMiddleware.handleError(
         undefined as any,
         mockRequest as Request,
@@ -446,11 +440,11 @@ describe('ErrorMiddleware', () => {
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(500);
-              expect(mockResponse.json).toHaveBeenCalledWith({
-          success: false,
-          message: 'Unknown error',
-          stack: 'No stack trace'
-        });
+      expect(mockResponse.json).toHaveBeenCalledWith({
+        success: false,
+        message: 'Unknown error',
+        stack: 'No stack trace'
+      });
 
       process.env.NODE_ENV = originalEnv;
     });
@@ -458,7 +452,7 @@ describe('ErrorMiddleware', () => {
     it('should handle errors with non-string messages', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'development';
-      
+
       const testError = new Error('Test error');
       testError.message = 123 as any; // Non-string message
 

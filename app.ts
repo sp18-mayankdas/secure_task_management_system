@@ -13,12 +13,8 @@ const app = express();
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  message: {
-    success: false,
-    message: 'Too many requests from this IP, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+  message: "Too many requests from this IP, please try again later.",
+  headers: true,
 });
 app.use(limiter);
 
@@ -28,24 +24,24 @@ app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
 app.use((req, res, next) => {
-  logger.info('Incoming request', {
+  logger.info("Incoming request", {
     method: req.method,
     url: req.url,
     ip: req.ip,
-    userAgent: req.get('User-Agent')
+    userAgent: req.get("User-Agent"),
   });
   next();
 });
 
-app.use('/api', routes);
+app.use("/api", routes);
 
 // Health check route
-app.get('/health', (req, res) => {
-  logger.info('Health check requested', { ip: req.ip });
+app.get("/health", (req, res) => {
+  logger.info("Health check requested", { ip: req.ip });
   res.status(200).json({
-    status: 'OK',
+    status: "OK",
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
   });
 });
 
